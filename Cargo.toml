@@ -26,21 +26,20 @@ tracing = "0.1"
 
 url = "2"
 
-ethers = { version = "2.0.7", features = ["ethers-solc"] }
-ethers-addressbook = "2.0.7"
-ethers-core = "2.0.7"
-ethers-contract = "2.0.7"
-ethers-contract-abigen = "2.0.7"
-ethers-providers = "2.0.7"
-ethers-signers = "2.0.7"
-ethers-middleware = "2.0.7"
-ethers-etherscan = "2.0.7"
-ethers-solc = "2.0.7"
+ethers = { version = "2.0.14", features = ["ethers-solc"] }
+ethers-addressbook = "2.0.14"
+ethers-core = "2.0.14"
+ethers-contract = "2.0.14"
+ethers-contract-abigen = "2.0.14"
+ethers-providers = "2.0.14"
+ethers-signers = "2.0.14"
+ethers-middleware = "2.0.14"
+ethers-solc = "2.0.14"
 
 # EVM
 bytes = "1"
 hashbrown = { version = "0.13", features = ["serde"] }
-revm = { version = "3", default-features = false, features = [
+revm = { version = "3.4.0", default-features = false, features = [
   "std",
   "serde",
   "memory_limit",
@@ -50,4 +49,4 @@ revm = { version = "3", default-features = false, features = [
 ] }
 
 [patch.crates-io]
-revm = { git = "https://github.com/bluealloy/revm/", rev = "6b55b9c0ab264c000e087c2f54f2d8dc24b869aa" }
+revm = { git = "https://github.com/bluealloy/revm/", rev = "83d27b0988ae6f240ede300a41e4e02737eb6c01" }
