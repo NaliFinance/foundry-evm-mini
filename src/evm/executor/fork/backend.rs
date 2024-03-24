@@ -31,27 +31,29 @@ use std::{
         Arc,
     },
 };
+use std::str::FromStr;
+use ethers_core::types::H160;
 use tracing::{error, trace, warn};
 
 // Various future/request type aliases
 
 type AccountFuture<Err> =
-    Pin<Box<dyn Future<Output = (Result<(U256, U256, Bytes), Err>, Address)> + Send>>;
-type StorageFuture<Err> = Pin<Box<dyn Future<Output = (Result<U256, Err>, Address, U256)> + Send>>;
-type BlockHashFuture<Err> = Pin<Box<dyn Future<Output = (Result<H256, Err>, u64)> + Send>>;
+Pin<Box<dyn Future<Output=(Result<(U256, U256, Bytes), Err>, Address)> + Send>>;
+type StorageFuture<Err> = Pin<Box<dyn Future<Output=(Result<U256, Err>, Address, U256)> + Send>>;
+type BlockHashFuture<Err> = Pin<Box<dyn Future<Output=(Result<H256, Err>, u64)> + Send>>;
 type FullBlockFuture<Err> = Pin<
     Box<
         dyn Future<
-                Output = (
-                    FullBlockSender,
-                    Result<Option<Block<Transaction>>, Err>,
-                    BlockId,
-                ),
-            > + Send,
+            Output=(
+                FullBlockSender,
+                Result<Option<Block<Transaction>>, Err>,
+                BlockId,
+            ),
+        > + Send,
     >,
 >;
 type TransactionFuture<Err> = Pin<
-    Box<dyn Future<Output = (TransactionSender, Result<Option<Transaction>, Err>, H256)> + Send>,
+    Box<dyn Future<Output=(TransactionSender, Result<Option<Transaction>, Err>, H256)> + Send>,
 >;
 
 type AccountInfoSender = OneshotSender<DatabaseResult<AccountInfo>>;
@@ -113,8 +115,8 @@ pub struct BackendHandler<M: Middleware> {
 }
 
 impl<M> BackendHandler<M>
-where
-    M: Middleware + Clone + 'static,
+    where
+        M: Middleware + Clone + 'static,
 {
     fn new(
         provider: M,
@@ -205,8 +207,20 @@ where
                 let block_id = self.block_id;
                 let fut = Box::pin(async move {
                     // serialize & deserialize back to U256
-                    let idx_req = H256::from_uint(&idx);
-                    let storage = provider.get_storage_at(address, idx_req, block_id).await;
+                    let mut idx_req = H256::from_uint(&idx);
+                    let mut storage = provider.get_storage_at(address, idx_req, block_id).await;
+
+                    match storage {
+                        Ok(_) => {}
+                        Err(_) => {
+                            // try to get implementation address and fetch again
+                            idx_req = H256::from_str("0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc").unwrap();
+                            let proxy_address_request = provider.get_storage_at(address, idx_req, block_id).await;
+                            let proxy_address: H160 = H160::from(proxy_address_request.unwrap());
+                            storage = provider.get_storage_at(proxy_address, idx_req, block_id).await;
+                        }
+                    };
+
                     let storage = storage.map(|storage| storage.into_uint());
                     (storage, address, idx)
                 });
@@ -303,8 +317,8 @@ where
 }
 
 impl<M> Future for BackendHandler<M>
-where
-    M: Middleware + Clone + Unpin + 'static,
+    where
+        M: Middleware + Clone + Unpin + 'static,
 {
     type Output = ();
 
@@ -541,8 +555,8 @@ impl SharedBackend {
     ///
     /// NOTE: this should be called with `Arc<Provider>`
     pub async fn spawn_backend<M>(provider: M, db: BlockchainDb, pin_block: Option<BlockId>) -> Self
-    where
-        M: Middleware + Unpin + 'static + Clone,
+        where
+            M: Middleware + Unpin + 'static + Clone,
     {
         let (shared, handler) = Self::new(provider, db, pin_block);
         // spawn the provider handler to a task
@@ -558,8 +572,8 @@ impl SharedBackend {
         db: BlockchainDb,
         pin_block: Option<BlockId>,
     ) -> Self
-    where
-        M: Middleware + Unpin + 'static + Clone,
+        where
+            M: Middleware + Unpin + 'static + Clone,
     {
         let (shared, handler) = Self::new(provider, db, pin_block);
 
@@ -587,8 +601,8 @@ impl SharedBackend {
         db: BlockchainDb,
         pin_block: Option<BlockId>,
     ) -> (Self, BackendHandler<M>)
-    where
-        M: Middleware + Unpin + 'static + Clone,
+        where
+            M: Middleware + Unpin + 'static + Clone,
     {
         let (backend, backend_rx) = channel(1);
         let cache = Arc::new(FlushJsonBlockCacheDB(Arc::clone(db.cache())));
@@ -683,7 +697,7 @@ impl DatabaseRef for SharedBackend {
             if err.is_possibly_non_archive_node_error() {
                 error!(target: "sharedbackend", "{NON_ARCHIVE_NODE_WARNING}");
             }
-          err
+            err
         }) {
             Ok(val) => Ok(val.into()),
             Err(err) => Err(err),
